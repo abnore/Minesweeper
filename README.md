@@ -1,6 +1,6 @@
 # Minesweeper
-Making minesweeper like the old Win98/2000 style using SDL2 and C
-This is a small project to learn C.
+Making minesweeper like the old Win98/2000 style using SDL2 and C.
+This is a small personal project to learn C.
 
 <img src="/img/minedemo.jpg" alt="Example showing the graphics" width="300">
 
