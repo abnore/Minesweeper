@@ -5,13 +5,18 @@ Making minesweeper like the old Win98/2000 style using SDL2 and C
 
 ## In progress:
 
-* Making it varying size, currently 10x8 grid
+* Making it varying size, currently 16x16 grid
 
 
 ### Running
 It shows the the number of mines, including negative.
-if you type `make` it will build but make sure to have bin and src folders.
-Edit the makefile if some flags are wrong.
+
+```console
+make
+```
+the macro `BOMB_CHANCE` set the chance of a cell being a bomb. The lower this number,
+the more bombs you will get.
+
 ```console
 make run
 ```

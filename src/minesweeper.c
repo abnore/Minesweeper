@@ -13,7 +13,7 @@
 #define TILE_SIZE 16
 #define WINDOW_HEIGHT 492
 #define WINDOW_WIDTH 426
-#define BOMB_CHANCE 10
+#define BOMB_CHANCE 6
 #define CANVAS_X 21
 #define CANVAS_Y 87
 
