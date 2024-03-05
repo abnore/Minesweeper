@@ -1,25 +1,15 @@
-CC = gcc
-LD = gcc
+GCC=gcc
+BIN=bin
+SRC=src
+CFLAGS= -pedantic -Wall -Wextra -std=c99 -F/Library/Frameworks -framework SDL2 -framework SDL2_image -I/Library/Frameworks/SDL2.framework/Headers -I/Library/Frameworks/SDL2_image.framework/Headers -rpath /Library/Frameworks
 
-SRC = src
-BIN = bin
-LIB = lib
-INC = include
+$(BIN)/main: $(SRC)/minesweeper.c
+	$(GCC) $(CFLAGS) -o $@ $^
 
-LFLAGS  = -Wall -std=c99 
-LFLAGS += -I$(LIB) 
-LFLAGS += -arch arm64 
-LFLAGS += -I$(INC)
-LFLAGS += -I/opt/homebrew/Cellar/sdl2/2.28.5/include/SDL2  
-LFLAGS += -L/opt/homebrew/Cellar/sdl2/2.28.5/lib
-LFLAGS += -lSDL2
+$(BIN):
+	mkdir -p $(BIN)
 
-build:
-	$(CC) $(LFLAGS) $(SRC)/main.c $(SRC)/graphics.c -o $(BIN)/mine
-run:
-	./bin/mine
+clean: $(BIN)/main
+	rm -rf main
 
-clean:
-	rm bin/*
-
-all: build run
+.PHONY: clean
