@@ -8,7 +8,7 @@ LDFLAGS := -F/Library/Frameworks -framework SDL2 -framework SDL2_image
 LDFLAGS += -Wl,-rpath,/Library/Frameworks
 
 
-$(BIN)/minesweeper:
+$(BIN)/minesweeper: $(SRC)/minesweeper.c
 	$(info Building and outputting to $(BIN) directory)
 	@mkdir -p $(BIN)
 	@$(GCC) $(CFLAGS) $(SRC)/minesweeper.c $(LDFLAGS) -o $@

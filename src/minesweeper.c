@@ -103,6 +103,7 @@ typedef struct {
 	Bool isBomb;
 	Bool isRevealed;
 	Bool isFlagged;
+	Bool isQuestion;
 	Bool isPressed;
 	Rect draw;
 	int closeBombs;
@@ -186,6 +187,7 @@ void initCell(Cell *cell, int row, int col)
 	cell->isBomb = (arc4random() % BOMB_CHANCE == 0);
 	cell->isRevealed = FALSE;
 	cell->isPressed = FALSE;
+	cell->isQuestion = FALSE;
 	cell->draw.srcRect.w = TILE_SIZE;
 	cell->draw.srcRect.h = TILE_SIZE;
 	cell->draw.destRect.x = row * CELL_SIZE + CANVAS_X;
@@ -265,16 +267,20 @@ void drawCanvas(SDL_Renderer *renderer, Cell (*grid)[COL][ROW], SDL_Texture *tex
 		for(int row = 0; row < ROW; row++){
 			Cell cell = (*grid)[col][row];
 
-			if(cell.isPressed || cell.isRevealed)							cell.draw.tile = TILE_PRESSED;
-			if(!cell.isBomb && cell.isRevealed)								cell.draw.tile = cell.closeBombs;
-			if(cell.isFlagged && !cell.isRevealed)							cell.draw.tile = TILE_FLAG;
+			if( (cell.isPressed || cell.isRevealed)
+				 && !cell.isQuestion)							cell.draw.tile = TILE_PRESSED;
+			if(!cell.isBomb && cell.isRevealed)					cell.draw.tile = cell.closeBombs;
+			if(cell.isFlagged && !cell.isRevealed)				cell.draw.tile = TILE_FLAG;
+			if(cell.isQuestion && !cell.isRevealed)				cell.draw.tile = TILE_QUESTION;
+			if((cell.isQuestion || cell.isFlagged)
+				&& cell.isPressed)								cell.draw.tile = TILE_QUESTION_PRESSED;
 
 			if(state == GAME_OVER) {
 
-				if(cell.isBomb && !cell.isRevealed)							cell.draw.tile = BOMB_NORMAL;
-				if(cell.isBomb && cell.isFlagged)							cell.draw.tile = TILE_FLAG;
-				if(cell.isBomb && cell.isRevealed)							cell.draw.tile = BOMB_RED;
-				if(cell.isFlagged && !cell.isBomb)							cell.draw.tile = BOMB_CROSS;
+				if(cell.isBomb && !cell.isRevealed)				cell.draw.tile = BOMB_NORMAL;
+				if(cell.isBomb && cell.isFlagged)				cell.draw.tile = TILE_FLAG;
+				if(cell.isBomb && cell.isRevealed)				cell.draw.tile = BOMB_RED;
+				if(cell.isFlagged && !cell.isBomb)				cell.draw.tile = BOMB_CROSS;
 			}
 
 			cell.draw.srcRect.x = sprites[cell.draw.tile].x;
@@ -354,8 +360,8 @@ void drawFace(SDL_Renderer *renderer, SDL_Texture *texture, Rect *face, GameStat
 	face->destRect.w = 36;
 	face->destRect.h = 36;
 
-	if (*state == WON)						face->tile = FACE_GLASSES;
-	if (*state == GAME_OVER)				face->tile = FACE_DEAD;
+	if (*state == WON)			face->tile = FACE_GLASSES;
+	if (*state == GAME_OVER)	face->tile = FACE_DEAD;
 
 	face->srcRect.x = sprites[face->tile].x;
 	face->srcRect.y = sprites[face->tile].y;
@@ -411,12 +417,12 @@ void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameSta
 
 				if(in_canvas && *state == PLAYING)
 				{
-					if(!MINE.isFlagged){
+					if(!MINE.isFlagged)
+					{
 						MINE.isPressed = TRUE;
-
 						face->tile = FACE_SHOCK;
-
 					}
+						face->tile = FACE_SHOCK;
 				}
 
 			}
@@ -460,12 +466,11 @@ void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameSta
 								*state = GAME_OVER;
 							}
 
-
 							MINE.isPressed = FALSE;
 							revealTiles(grid, gridX, gridY);
-
 						}
-						else {
+						else
+						{
 							MINE_LAST.isPressed = FALSE;;
 						}
 					}
@@ -474,17 +479,24 @@ void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameSta
 
 					if(!MINE.isRevealed && *state == PLAYING)
 					{
-						if(pressed_y == gridY && pressed_x == gridX) {
-
-							if(!MINE.isFlagged){
+						if(pressed_y == gridY && pressed_x == gridX)
+						{
+							if(!MINE.isFlagged && !MINE.isQuestion){
 								MINE.isFlagged = TRUE;
 								MINE.isPressed = FALSE;
 								(*bomb_count)--;
 							}
-							else {
+							else if(MINE.isFlagged)
+							{
 								MINE.isFlagged = FALSE;
+								MINE.isQuestion = TRUE;
 								MINE.isPressed = FALSE;
 								(*bomb_count)++;
+							}
+							else {
+								MINE.isQuestion = FALSE;
+								MINE.isPressed = FALSE;
+
 							}
 						}
 						else {
