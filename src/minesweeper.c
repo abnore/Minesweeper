@@ -78,7 +78,7 @@ Sprite sprites[] = {
 
 typedef enum {
 	TILE_PRESSED,
-	ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT,
+	ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, // never used - but here for clarity
 	TILE_NORMAL = 9,
 	TILE_FLAG,
 	TILE_QUESTION,
@@ -426,15 +426,13 @@ void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameSta
 				}
 
 			}
-			else if( event.button.button == SDL_BUTTON_RIGHT) {
-
+			else if( event.button.button == SDL_BUTTON_RIGHT)
+			{
 				if(in_canvas && *state == PLAYING)
 				{
 					MINE.isPressed = TRUE;
 				}
-
 			}
-
 			break;
 
 	case SDL_MOUSEBUTTONUP:
@@ -449,7 +447,7 @@ void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameSta
 
 				if( event.button.button == SDL_BUTTON_LEFT)
 				{
-					if (on_face && *state == PLAYING && *state != WON)
+					if (*state == PLAYING && *state != WON)
 					{
 						face->tile = FACE_NORMAL;
 					}
@@ -468,6 +466,7 @@ void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameSta
 
 							MINE.isPressed = FALSE;
 							revealTiles(grid, gridX, gridY);
+							if ( MINE.isQuestion ) MINE.isQuestion = FALSE;
 						}
 						else
 						{
