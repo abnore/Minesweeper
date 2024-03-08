@@ -112,7 +112,7 @@ typedef struct {
 int InitWindowAndIMG(void)
 {
 	uint32_t WINDOW_FLAGS		=  SDL_INIT_VIDEO	| SDL_INIT_EVENTS; // apparently optional..
-	uint32_t IMG_FLAGS			=  IMG_INIT_JPG		| IMG_INIT_PNG;
+	uint32_t IMG_FLAGS		=  IMG_INIT_JPG		| IMG_INIT_PNG;
 
 	if (SDL_Init(WINDOW_FLAGS) != 0){
 		fprintf(stderr, "ERROR: SDL_Init with the error %s\n", SDL_GetError());
@@ -268,19 +268,19 @@ void drawCanvas(SDL_Renderer *renderer, Cell (*grid)[COL][ROW], SDL_Texture *tex
 			Cell cell = (*grid)[col][row];
 
 			if( (cell.isPressed || cell.isRevealed)
-				 && !cell.isQuestion)							cell.draw.tile = TILE_PRESSED;
-			if(!cell.isBomb && cell.isRevealed)					cell.draw.tile = cell.closeBombs;
+				 && !cell.isQuestion)					cell.draw.tile = TILE_PRESSED;
+			if(!cell.isBomb && cell.isRevealed)				cell.draw.tile = cell.closeBombs;
 			if(cell.isFlagged && !cell.isRevealed)				cell.draw.tile = TILE_FLAG;
 			if(cell.isQuestion && !cell.isRevealed)				cell.draw.tile = TILE_QUESTION;
 			if((cell.isQuestion || cell.isFlagged)
-				&& cell.isPressed)								cell.draw.tile = TILE_QUESTION_PRESSED;
+				&& cell.isPressed)					cell.draw.tile = TILE_QUESTION_PRESSED;
 
 			if(state == GAME_OVER) {
 
-				if(cell.isBomb && !cell.isRevealed)				cell.draw.tile = BOMB_NORMAL;
-				if(cell.isBomb && cell.isFlagged)				cell.draw.tile = TILE_FLAG;
-				if(cell.isBomb && cell.isRevealed)				cell.draw.tile = BOMB_RED;
-				if(cell.isFlagged && !cell.isBomb)				cell.draw.tile = BOMB_CROSS;
+				if(cell.isBomb && !cell.isRevealed)			cell.draw.tile = BOMB_NORMAL;
+				if(cell.isBomb && cell.isFlagged)			cell.draw.tile = TILE_FLAG;
+				if(cell.isBomb && cell.isRevealed)			cell.draw.tile = BOMB_RED;
+				if(cell.isFlagged && !cell.isBomb)			cell.draw.tile = BOMB_CROSS;
 			}
 
 			cell.draw.srcRect.x = sprites[cell.draw.tile].x;
@@ -309,7 +309,7 @@ void drawNumbers(SDL_Renderer *renderer, SDL_Texture *texture, int *number_of_bo
 	s_ones = (lastSecond % 10) + OFFSET;
 
 	// 26 minus sign, 27 blank
-	if(bombs <= -10 )					hundreds = 26; // MINUS SIGN
+	if(bombs <= -10 )			hundreds = 26; // MINUS SIGN
 	if(bombs < 0 && bombs > -10)		tens = 26;
 	if(bombs < 100 && bombs > -10 )		hundreds = 27; // BLANK
 	if(bombs < 10 && bombs >= 0)		tens = 27;
@@ -360,7 +360,7 @@ void drawFace(SDL_Renderer *renderer, SDL_Texture *texture, Rect *face, GameStat
 	face->destRect.w = 36;
 	face->destRect.h = 36;
 
-	if (*state == WON)			face->tile = FACE_GLASSES;
+	if (*state == WON)		face->tile = FACE_GLASSES;
 	if (*state == GAME_OVER)	face->tile = FACE_DEAD;
 
 	face->srcRect.x = sprites[face->tile].x;
