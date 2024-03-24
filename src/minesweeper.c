@@ -178,6 +178,7 @@ SDL_Texture *createTexture(SDL_Renderer *renderer, const char *file_path)
 	SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
 	if (!texture) {
 		fprintf(stderr, "ERROR: SDL_Texture with the error %s\n", SDL_GetError());
+		SDL_FreeSurface(surface);
 		return 0;
 	}
 	SDL_FreeSurface(surface);
