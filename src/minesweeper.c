@@ -19,10 +19,10 @@
 
 #define abs(a) ( (a < 0) ? -a : a )
 
-SDL_Window *window;
-SDL_Renderer *renderer;
-SDL_Surface *icon;
-SDL_Texture *background_texture, *numbers_texture, *tiles_texture, *faces_texture;
+SDL_Window		*window;
+SDL_Renderer	*renderer;
+SDL_Surface		*icon;
+SDL_Texture		*background_texture, *numbers_texture, *tiles_texture, *faces_texture;
 
 typedef enum {
 	FALSE,
@@ -126,32 +126,46 @@ int InitWindowAndIMG(void)
 	return 1;
 }
 
-void createWindow(void)
+int createWindow(void)
 {
-	window = SDL_CreateWindow(
+	if ((window = SDL_CreateWindow(
 				"Minesweeper",
 				SDL_WINDOWPOS_CENTERED,
 				SDL_WINDOWPOS_CENTERED,
 				WINDOW_WIDTH,
 				WINDOW_HEIGHT,
-				SDL_WINDOW_SHOWN );
-	if (!window) {
+				SDL_WINDOW_SHOWN)) == 0 )
+	{
 		fprintf(stderr, "ERROR: SDL_CreateWindow with the error %s\n", SDL_GetError());
+		IMG_Quit();
+		SDL_Quit();
+		return -1;
 	}
 
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-	if (!renderer) {
+	if ((renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED)) == 0)
+	{
 		fprintf(stderr, "ERROR: SDL_CreateRenderer with the error %s\n", SDL_GetError());
+		SDL_DestroyWindow(window);
+		IMG_Quit();
+		SDL_Quit();
+		return -1;
 	}
 
-	icon = IMG_Load("../img/icon.png");
-	if (!icon) {
+	if ((icon = IMG_Load("../img/icon.png")) == 0)
+	{
 		fprintf(stderr, "ERROR: IMG_Load with the error %s\n", SDL_GetError());
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyWindow(window);
+		IMG_Quit();
+		SDL_Quit();
+		return -1;
+
 	}
 
 	SDL_SetWindowIcon(window, icon);
 	SDL_FreeSurface(icon);
 
+	return 0;
 }
 
 SDL_Texture *createTexture(SDL_Renderer *renderer, const char *file_path)
@@ -217,38 +231,38 @@ int countNeighboringBombs(Cell grid[COL][ROW], int x, int y)
 	return bombCount;
 }
 
-void initGrid(Cell (*grid)[COL][ROW], int *num_bombs)
+void initGrid(Cell grid[COL][ROW], int *num_bombs)
 {
 	*num_bombs = 0;
 
 	for(int col = 0; col < COL; col++) {
 		for(int row = 0; row < ROW; row++) {
-			initCell(&(*grid)[col][row], row, col);
-			if((*grid)[col][row].isBomb == TRUE) (*num_bombs)++;
+			initCell(&grid[col][row], row, col);
+			if(grid[col][row].isBomb == TRUE) (*num_bombs)++;
 		}
 	}
 	for(int col = 0; col < COL; col++) {
 		for(int row = 0; row < ROW; row++) {
-			if(!(*grid)[col][row].isBomb) (*grid)[col][row].closeBombs = countNeighboringBombs(*grid, row, col);
+			if(!grid[col][row].isBomb) grid[col][row].closeBombs = countNeighboringBombs(grid, row, col);
 		}
 	}
 }
 
-void revealTiles(Cell (*grid)[COL][ROW], int x, int y)
+void revealTiles(Cell grid[COL][ROW], int x, int y)
 {
 	// Check if the tile coordinates are within the (*grid) bounds
 	if (x < 0 || x >= GRIDSIZE || y < 0 || y >= GRIDSIZE)
 		return;
 
 	// Check if the tile is already revealed or is a bomb
-	if ((*grid)[y][x].isRevealed || (*grid)[y][x].isBomb || (*grid)[y][x].isFlagged)
+	if (grid[y][x].isRevealed || grid[y][x].isBomb || grid[y][x].isFlagged)
 		return;
 
 	// Reveal this tile
-	(*grid)[y][x].isRevealed = TRUE;
+	grid[y][x].isRevealed = TRUE;
 
 	    // If the tile is not blank (has neighboring bombs), stop recursion
-	if ((*grid)[y][x].closeBombs > 0)
+	if (grid[y][x].closeBombs > 0)
 		return;
 
 	    // Recursively reveal adjacent tiles
@@ -261,11 +275,11 @@ void revealTiles(Cell (*grid)[COL][ROW], int x, int y)
 	}
 }
 
-void drawCanvas(SDL_Renderer *renderer, Cell (*grid)[COL][ROW], SDL_Texture *texture, Sprite *sprites, GameState state)
+void drawCanvas(SDL_Renderer *renderer, Cell grid[COL][ROW], SDL_Texture *texture, Sprite *sprites, GameState state)
 {
 	for(int col = 0; col < COL; col++){
 		for(int row = 0; row < ROW; row++){
-			Cell cell = (*grid)[col][row];
+			Cell cell = grid[col][row];
 
 			if( (cell.isPressed || cell.isRevealed)
 				 && !cell.isQuestion)					cell.draw.tile = TILE_PRESSED;
@@ -295,18 +309,15 @@ void drawNumbers(SDL_Renderer *renderer, SDL_Texture *texture, int *number_of_bo
 {
 	#define OFFSET 16
 
-	int bombs = *number_of_bombs;
+	int bombs			= *number_of_bombs;
 
-	int hundreds, tens, ones;
-	int s_hundreds, s_tens, s_ones;
+	int	hundreds		= (bombs / 100)				+ OFFSET;
+	int tens			= ((abs(bombs) % 100) / 10) + OFFSET;
+	int ones			= (abs(bombs) % 10)			+ OFFSET;
 
-	hundreds = (bombs / 100) + OFFSET;
-	tens = ((abs(bombs) % 100) / 10) + OFFSET;
-	ones = (abs(bombs) % 10) + OFFSET;
-
-	s_hundreds = (lastSecond / 100) + OFFSET;
-	s_tens = ((lastSecond % 100) / 10) + OFFSET;
-	s_ones = (lastSecond % 10) + OFFSET;
+	int s_hundreds		= (lastSecond / 100)		+ OFFSET;
+	int s_tens			= ((lastSecond % 100) / 10) + OFFSET;
+	int s_ones			= (lastSecond % 10)			+ OFFSET;
 
 	// 26 minus sign, 27 blank
 	if(bombs <= -10 )			hundreds = 26; // MINUS SIGN
@@ -314,8 +325,8 @@ void drawNumbers(SDL_Renderer *renderer, SDL_Texture *texture, int *number_of_bo
 	if(bombs < 100 && bombs > -10 )		hundreds = 27; // BLANK
 	if(bombs < 10 && bombs >= 0)		tens = 27;
 
-	SDL_Rect numbers = { .w = 13, .h = 23, };
-	SDL_Rect numbers_destination = { .x = 28, .y = 28, .w = 20, .h = 34, };
+	SDL_Rect numbers					= { .w = 13, .h = 23, };
+	SDL_Rect numbers_destination		= { .x = 28, .y = 28, .w = 20, .h = 34, };
 
 	// Left numbers
 	numbers.x = sprites[hundreds].x;
@@ -353,12 +364,12 @@ void drawNumbers(SDL_Renderer *renderer, SDL_Texture *texture, int *number_of_bo
 
 void drawFace(SDL_Renderer *renderer, SDL_Texture *texture, Rect *face, GameState *state)
 {
-	face->srcRect.w = 24;
-	face->srcRect.h = 24;
-	face->destRect.x = 194;
-	face->destRect.y = 27;
-	face->destRect.w = 36;
-	face->destRect.h = 36;
+	face->srcRect.w		= 24;
+	face->srcRect.h		= 24;
+	face->destRect.x	= 194;
+	face->destRect.y 	= 27;
+	face->destRect.w	= 36;
+	face->destRect.h	= 36;
 
 	if (*state == WON)		face->tile = FACE_GLASSES;
 	if (*state == GAME_OVER)	face->tile = FACE_DEAD;
@@ -369,14 +380,14 @@ void drawFace(SDL_Renderer *renderer, SDL_Texture *texture, Rect *face, GameStat
 	SDL_RenderCopy(renderer,texture, &face->srcRect, &face->destRect);
 }
 
-void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameState *state, int *bomb_count)
+void process_input(int *window_open, Cell grid[COL][ROW], Rect *face, GameState *state, int *bomb_count)
 {
-#define MINE      ((*grid)[gridY][gridX])
-#define MINE_LAST ((*grid)[pressed_y][pressed_x])
+#define MINE      (grid[gridY][gridX])
+#define MINE_LAST (grid[pressed_y][pressed_x])
 
-	SDL_Event event;
-	int mouseX, mouseY, gridX, gridY;
-	Bool in_canvas, on_face;
+	SDL_Event	event;
+	int			mouseX, mouseY, gridX, gridY;
+	Bool		in_canvas, on_face;
 
 	static int pressed_x = 0;
 	static int pressed_y = 0;
@@ -396,16 +407,19 @@ void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameSta
 				break;
 
 		case SDL_MOUSEBUTTONDOWN:
-			mouseX = event.button.x;
-			mouseY = event.button.y;
+			mouseX		= event.button.x;
+			mouseY		= event.button.y;
 
-			gridX = (mouseX - CANVAS_X) / CELL_SIZE;
-			gridY = (mouseY - CANVAS_Y) / CELL_SIZE;
-			pressed_x = gridX;
-			pressed_y = gridY;
+			gridX		= (mouseX - CANVAS_X) / CELL_SIZE;
+			gridY		= (mouseY - CANVAS_Y) / CELL_SIZE;
+			pressed_x	= gridX;
+			pressed_y	= gridY;
 
-			in_canvas = ((mouseX >= CANVAS_X && gridX < GRIDSIZE) && (mouseY >= CANVAS_Y && gridY < GRIDSIZE));
-			on_face = (mouseX >= 196 && mouseX <= 236 && mouseY >= 26 && mouseY <= 62);
+			in_canvas	= ((mouseX >= CANVAS_X && gridX < GRIDSIZE)
+							&& (mouseY >= CANVAS_Y && gridY < GRIDSIZE));
+
+			on_face		= (mouseX >= 196 && mouseX <= 236
+							&& mouseY >= 26 && mouseY <= 62);
 
 			if( event.button.button == SDL_BUTTON_LEFT)
 			{
@@ -436,14 +450,17 @@ void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameSta
 			break;
 
 	case SDL_MOUSEBUTTONUP:
-			mouseX = event.button.x;
-			mouseY = event.button.y;
+			mouseX		= event.button.x;
+			mouseY		= event.button.y;
 
-			gridX = (mouseX - CANVAS_X) / CELL_SIZE;
-			gridY = (mouseY - CANVAS_Y) / CELL_SIZE;
+			gridX		= (mouseX - CANVAS_X) / CELL_SIZE;
+			gridY		= (mouseY - CANVAS_Y) / CELL_SIZE;
 
-			in_canvas = ((mouseX >= CANVAS_X && gridX < GRIDSIZE) && (mouseY >= CANVAS_Y && gridY < GRIDSIZE));
-			on_face = (mouseX >= 196 && mouseX <= 236 && mouseY >= 26 && mouseY <= 62);
+			in_canvas	= ((mouseX >= CANVAS_X && gridX < GRIDSIZE)
+							&& (mouseY >= CANVAS_Y && gridY < GRIDSIZE));
+
+			on_face		= (mouseX >= 196 && mouseX <= 236
+							&& mouseY >= 26 && mouseY <= 62);
 
 				if( event.button.button == SDL_BUTTON_LEFT)
 				{
@@ -511,13 +528,13 @@ void process_input(int *window_open, Cell (*grid)[COL][ROW], Rect *face, GameSta
 #undef MINE_LAST
 }
 
-void check_status(Cell (*grid)[COL][ROW], GameState *state)
+void check_status(Cell grid[COL][ROW], GameState *state)
 {
 	/* Checking every mine - if it is a bomb, or not revealed - return. If everytile that
 	 * is not a bomb is revealed the state is won */
 	for(int col = 0; col < COL; col++){
 		for(int row = 0; row < ROW; row++){
-			if (!(*grid)[col][row].isBomb && !(*grid)[col][row].isRevealed)
+			if (!grid[col][row].isBomb && !grid[col][row].isRevealed)
 				return;
 		}
 	}
@@ -541,29 +558,34 @@ void destroy(void)
 int main(void)
 {
 	Cell grid[COL][ROW];
-	GameState state = PLAYING;
-	Rect face = { .tile = FACE_NORMAL };
+
+	GameState state			= PLAYING;
+	Rect face				= { .tile = FACE_NORMAL };
 
 	time_t start, current;
-	double elapsed_seconds = 0;
-	int last_second = 0;
+	double elapsed_seconds	= 0;
+	int last_second			= 0;
 	time(&start);
-	Bool timer_active = TRUE;
+	Bool timer_active		= TRUE;
 
-	int number_of_bombs = 0;
-	int bomb_count = 0;
+	int number_of_bombs		= 0;
+	int bomb_count			= 0;
 
-	int window_open = InitWindowAndIMG(); // Errors handled in function
-	initGrid(&grid, &number_of_bombs);
-	createWindow();
+	int window_open			= InitWindowAndIMG(); // Errors handled in function
+
+	initGrid(grid, &number_of_bombs);
+	if(createWindow() < 0) {
+		fprintf(stderr, "Error creating window\n");
+		return -1;
+	}
 	loadTextures();
-	bomb_count = number_of_bombs;
+	bomb_count				= number_of_bombs;
 
 	SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 
 	while(window_open)
 	{
-		check_status(&grid, &state);
+		check_status(grid, &state);
 
 		if ( state == GAME_OVER || state == RESTARTING || state == WON )
 		{
@@ -580,12 +602,12 @@ int main(void)
 		}
 
 		if ( state == RESTARTING ) {
-			initGrid(&grid, &number_of_bombs);
-			state = PLAYING;
+			initGrid(grid, &number_of_bombs);
+			state			= PLAYING;
 			time(&start);
-			last_second = -1;
-			timer_active = TRUE;
-			bomb_count = number_of_bombs;
+			last_second		= -1;
+			timer_active	= TRUE;
+			bomb_count		= number_of_bombs;
 		}
 		/*Create the static background*/
 		SDL_RenderClear(renderer);
@@ -593,11 +615,11 @@ int main(void)
 		/*Draw the things that is dynamic*/
 		drawNumbers(renderer, numbers_texture, &bomb_count, last_second);
 		drawFace(renderer, faces_texture, &face, &state);
-		drawCanvas(renderer, &grid, tiles_texture, sprites, state);
+		drawCanvas(renderer, grid, tiles_texture, sprites, state);
 		/* Present */
 		SDL_RenderPresent(renderer);
 
-		process_input(&window_open, &grid, &face, &state, &bomb_count);
+		process_input(&window_open, grid, &face, &state, &bomb_count);
 	}
 
 	destroy();
