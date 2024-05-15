@@ -12,7 +12,7 @@ This is a small personal project to learn C.
 * Maybe incorporating sounds
 
 ### When running
-It now shows the the number of mines correctly, including negative numbers.
+It now shows the number of mines correctly, including negative numbers.
 The timer is functioning and will stop when the game is over. Graphics work like they should.
 If you press a mine, and move the cursor it will let you undo the press.
 Additionaly, I added the question mark functionality so you can mark a tile a question mark, but it
