@@ -240,8 +240,10 @@ int main(void)
 
 void check_status(cell grid[COL][ROW], game_state *state)
 {
-	/* Checking every mine - if it is a bomb, or not revealed - return. If everytile that
-	 * is not a bomb is revealed the state is won */
+	/* Checking every mine - if it is a bomb and not revealed - return.
+     *
+     * If every tile that is not a bomb is revealed the state is won */
+
     foreach_cell({
         if (!cell->is_bomb && !cell->is_revealed)
         return;
@@ -292,14 +294,14 @@ void init_grid(cell grid[COL][ROW], int *num_bombs)
     INFO("Grid initialized");
 	*num_bombs = 0;
 
-    foreach_cell(
+    foreach_cell({
         init_cell( cell, row, col );
         if( cell->is_bomb == true ) (*num_bombs)++;
-    );
-    foreach_cell(
+    });
+    foreach_cell({
         if( !cell->is_bomb )
         cell->close_bombs = count_neighboring_bombs(grid, row, col);
-	);
+    });
 
     TRACE("Counted bombs, total amount is %d", *num_bombs);
 }
@@ -332,29 +334,34 @@ void reveal_tiles(cell grid[COL][ROW], int x, int y)
 
 tile_type select_tile_for_cell(cell *c, game_state state)
 {
+    // --- Game over: bombs and mistakes ---
     if (state == GAME_OVER) {
-        if (c->is_bomb && !c->is_revealed) return BOMB_NORMAL;
-        if (c->is_bomb && c->is_flagged)   return TILE_FLAG;
-        if (c->is_bomb && c->is_revealed)  return BOMB_RED;
-        if (c->is_flagged && !c->is_bomb)  return BOMB_CROSS;
+        if (c->is_bomb && c->is_revealed)   return BOMB_RED;
+        if (c->is_bomb && !c->is_flagged)   return BOMB_NORMAL;
+        if (c->is_flagged && !c->is_bomb)   return BOMB_CROSS;
+        if (c->is_flagged)                  return TILE_FLAG;
     }
 
-    if ((c->is_question || c->is_flagged) && c->is_pressed)
-        return TILE_QUESTION_PRESSED;
-
+    // --- Flags and question marks ---
     if (c->is_flagged && !c->is_revealed)
         return TILE_FLAG;
+
+    if (c->is_question && !c->is_revealed && c->is_pressed)
+        return TILE_QUESTION_PRESSED;
 
     if (c->is_question && !c->is_revealed)
         return TILE_QUESTION;
 
-    if (!c->is_bomb && c->is_revealed)
+    // --- Revealed tile: show number ---
+    if (c->is_revealed && !c->is_bomb)
         return c->close_bombs;
 
-    if ((c->is_pressed || c->is_revealed) && !c->is_question)
+    // --- Pressed tile (but not revealed) ---
+    if (c->is_pressed)
         return TILE_PRESSED;
 
-    return c->draw.tile; // fallback or default
+    // --- Default: hidden tile ---
+    return TILE_NORMAL;
 }
 
 void draw_canvas(picasso_backbuffer *renderer, cell grid[COL][ROW], picasso_image *texture, sprite *sprites, game_state state)
@@ -457,8 +464,7 @@ void process_input(cell grid[COL][ROW], rect *face, game_state *state, int *bomb
     static int pressed_x = -1;
     static int pressed_y = -1;
 
-    while (canopy_poll_event(&event))
-    {
+    while (canopy_poll_event(&event)) {
         switch (event.type) {
 
         case CANOPY_EVENT_KEY:
@@ -483,24 +489,28 @@ void process_input(cell grid[COL][ROW], rect *face, game_state *state, int *bomb
 
                 in_canvas = (mouse_x >= CANVAS_X && grid_x < GRIDSIZE &&
                              mouse_y >= CANVAS_Y && grid_y < GRIDSIZE);
+
                 on_face = (mouse_x >= 196 && mouse_x <= 236 &&
                            mouse_y >= 26 && mouse_y <= 62);
 
-                if (event.mouse.button == CANOPY_MOUSE_BUTTON_LEFT) {
-                    if (on_face) {
-                        face->tile = FACE_PRESSED;
-                        *state = RESTARTING;
-                    }
+                switch (event.mouse.button) {
+                    case CANOPY_MOUSE_BUTTON_LEFT:
+                        if (on_face) {
+                            face->tile = FACE_PRESSED;
+                            *state = RESTARTING;
+                        } else if (in_canvas && *state == PLAYING && !MINE.is_flagged) {
+                            MINE.is_pressed = true;
+                            face->tile = FACE_SHOCK;
+                        }
+                        break;
 
-                    if (in_canvas && *state == PLAYING && !grid[grid_y][grid_x].is_flagged) {
-                        grid[grid_y][grid_x].is_pressed = true;
-                        face->tile = FACE_SHOCK;
-                    }
-                }
-                else if (event.mouse.button == CANOPY_MOUSE_BUTTON_RIGHT) {
-                    if (in_canvas && *state == PLAYING) {
-                        grid[grid_y][grid_x].is_pressed = true;
-                    }
+                    case CANOPY_MOUSE_BUTTON_RIGHT:
+                        if (in_canvas && *state == PLAYING) {
+                            MINE.is_pressed = true;
+                        }
+                        break;
+
+                    default: break;
                 }
                 break;
 
@@ -514,17 +524,15 @@ void process_input(cell grid[COL][ROW], rect *face, game_state *state, int *bomb
                 in_canvas = (mouse_x >= CANVAS_X && grid_x < GRIDSIZE &&
                              mouse_y >= CANVAS_Y && grid_y < GRIDSIZE);
 
-                // ✅ Always cancel the previously pressed tile
-                if (pressed_x >= 0 && pressed_y >= 0 &&
-                    pressed_x < COL && pressed_y < ROW)
-                {
-                    MINE_LAST.is_pressed = false;
-                }
+                // Always unpress the previously pressed tile
+                MINE_LAST.is_pressed = false;
 
-                // ✅ Only act if released on same tile as pressed
-                if (pressed_x == grid_x && pressed_y == grid_y && in_canvas)
-                {
-                    if (event.mouse.button == CANOPY_MOUSE_BUTTON_LEFT) {
+                // Only process if release matches press and is in bounds
+                if (pressed_x != grid_x || pressed_y != grid_y || !in_canvas)
+                    break;
+
+                switch (event.mouse.button) {
+                    case CANOPY_MOUSE_BUTTON_LEFT:
                         if (*state == PLAYING && *state != WON) {
                             face->tile = FACE_NORMAL;
 
@@ -540,8 +548,9 @@ void process_input(cell grid[COL][ROW], rect *face, game_state *state, int *bomb
                                     MINE_LAST.is_question = false;
                             }
                         }
-                    }
-                    else if (event.mouse.button == CANOPY_MOUSE_BUTTON_RIGHT) {
+                        break;
+
+                    case CANOPY_MOUSE_BUTTON_RIGHT:
                         if (!MINE_LAST.is_revealed && *state == PLAYING) {
                             if (!MINE_LAST.is_flagged && !MINE_LAST.is_question) {
                                 MINE_LAST.is_flagged = true;
@@ -556,7 +565,9 @@ void process_input(cell grid[COL][ROW], rect *face, game_state *state, int *bomb
                                 MINE_LAST.is_question = false;
                             }
                         }
-                    }
+                        break;
+
+                    default: break;
                 }
 
                 pressed_x = -1;
@@ -564,12 +575,12 @@ void process_input(cell grid[COL][ROW], rect *face, game_state *state, int *bomb
                 break;
 
             default: break;
-            }
+            } // end switch (event.mouse.action)
             break;
 
         default: break;
-        }
-    }
+        } // end switch (event.type)
+    } // end while (canopy_poll_event)
 
 #undef MINE
 #undef MINE_LAST
