@@ -1,9 +1,6 @@
 .DS_Store
 # Prerequisites
 *.d
-img/Sprites/faces.bmp
-img/Sprites/numbers.bmp
-img/Sprites/tiles.bmp
 .gitignore
 logs/
 
