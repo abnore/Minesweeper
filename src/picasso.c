@@ -26,25 +26,6 @@ void * picasso_realloc(void *ptr, size_t size){
     return realloc(ptr, size);
 }
 
-/* -------------------- Little Endian Byte Readers Utility -------------------- */
-uint8_t picasso_read_u8(const uint8_t *p) {
-    return p[0];
-}
-
-uint16_t picasso_read_u16_le(const uint8_t *p) {
-    uint16_t lo = picasso_read_u8(p);
-    uint16_t hi = picasso_read_u8(p + 1);
-    return lo | (hi << 8);
-}
-
-uint32_t picasso_read_u32_le(const uint8_t *p) {
-    uint16_t lo = picasso_read_u16_le(p);
-    uint16_t hi = picasso_read_u16_le(p + 2);
-    return (uint32_t)lo | ((uint32_t)hi << 16);
-}
-int32_t picasso_read_s32_le(const uint8_t *p) {
-    return (int32_t)picasso_read_u32_le(p);// safe because casting unsigned to signed preserves bit pattern
-}
 /* -------------------- File Support -------------------- */
 
 void *picasso_read_entire_file(const char *path, size_t *out_size)

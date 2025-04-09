@@ -1,8 +1,8 @@
 #include <stdbool.h>
 #include <string.h>
+
 #include "picasso.h"
 #include "logger.h"
-#include "picasso_icc_profiles.h"
 
 #define LCS_GM_BUSINESS          (1<<0) // 0x00000001  // Saturation
 #define LCS_GM_GRAPHICS          (1<<1) // 0x00000002  // Relative colorimetric
@@ -12,6 +12,7 @@
 #define bits_to_bytes(x) ((x)>>3)
 #define bytes_to_bits(x) ((x)<<3)
 
+struct _bmp_load_info;
 
 typedef enum {
     BITMAP_INVALID     = -1,
@@ -42,6 +43,15 @@ typedef enum {
     PROFILE_LINKED          = 0x4C494E4B, // ICC profile is in an external file ('LINK' in little-endian)
 } bmp_cs_type;
 
+typedef struct _bmp_load_info{
+    bmp image;
+    bmp_header_type type;
+    int channels, width, height, row_size, row_stride, size_image, comp;
+    bool is_flipped, set_all_alpha;
+    int rm_shift, gm_shift, bm_shift, am_shift;
+    uint32_t rm, gm, bm, am;
+}bmp_load_info;
+
 const char *bmp_compression_to_str(uint32_t compression) {
     switch (compression) {
         case BI_RGB:            return "BI_RGB";
@@ -55,26 +65,6 @@ const char *bmp_compression_to_str(uint32_t compression) {
         case BI_CMYKRLE8:       return "BI_CMYKRLE8";
         case BI_CMYKRLE4:       return "BI_CMYKRLE4";
         default:                return "Unknown";
-    }
-}
-static const char *picasso_icc_profile_name(picasso_icc_profile profile) {
-    switch (profile) {
-        case PICASSO_PROFILE_NONE: return "None";
-        case PICASSO_PROFILE_ACESCG_LINEAR: return "ACESCG Linear";
-        case PICASSO_PROFILE_ADOBERGB1998: return "AdobeRGB1998";
-        case PICASSO_PROFILE_DCI_P3_RGB: return "DCI(P3) RGB";
-        case PICASSO_PROFILE_DISPLAY_P3: return "Display P3";
-        case PICASSO_PROFILE_GENERIC_CMYK: return "Generic CMYK Profile";
-        case PICASSO_PROFILE_GENERIC_GRAY_GAMMA_2_2: return "Generic Gray Gamma 2.2 Profile";
-        case PICASSO_PROFILE_GENERIC_GRAY: return "Generic Gray Profile";
-        case PICASSO_PROFILE_GENERIC_LAB: return "Generic Lab Profile";
-        case PICASSO_PROFILE_GENERIC_RGB: return "Generic RGB Profile";
-        case PICASSO_PROFILE_GENERIC_XYZ: return "Generic XYZ Profile";
-        case PICASSO_PROFILE_ITU_2020: return "ITU-2020";
-        case PICASSO_PROFILE_ITU_709: return "ITU-709";
-        case PICASSO_PROFILE_ROMM_RGB: return "ROMM RGB";
-        case PICASSO_PROFILE_SRGB: return "sRGB Profile";
-        default: return "Unknown";
     }
 }
 char * _print_cs_type( bmp_cs_type type)
@@ -98,7 +88,6 @@ char *_print_header_type(bmp_header_type type)
         default: return "Not supported";
     }
 }
-
 
 
 // This counts how many bits are set to 1 in the mask.
@@ -151,37 +140,6 @@ static inline uint8_t decode_channel(color p, uint32_t mask)
 } while (0)
 
 
-static bool picasso_embed_icc_profile(bmp *image, picasso_icc_profile profile, FILE *out)
-{
-    const uint8_t *icc_data = NULL;
-    size_t icc_size = 0;
-
-    switch (profile) {
-    #include "picasso_icc_switch.h"
-        case PICASSO_PROFILE_NONE:
-        default:
-            return false;  // No ICC data written
-    }
-
-    if (!icc_data || icc_size == 0) {
-        return false;
-    }
-
-    // Set header fields for ICC profile
-    image->ih.profile_size = (uint32_t)icc_size;
-    image->ih.profile_data = image->fh.file_size;
-
-    // Write ICC profile to file
-    size_t written = fwrite(icc_data, 1, icc_size, out);
-    if (written != icc_size) {
-        ERROR("Failed to write ICC profile data (%zu of %zu bytes)", written, icc_size);
-        return false;
-    }
-
-    TRACE("Wrote ICC profile: %s (%zu bytes)", picasso_icc_profile_name(profile), icc_size);
-    image->fh.file_size += (uint32_t)icc_size;
-    return true;
-}
 
 void picasso_flip_buffer_vertical(uint8_t *buffer, int width, int height, int channels)
 {
@@ -203,183 +161,7 @@ void picasso_flip_buffer_vertical(uint8_t *buffer, int width, int height, int ch
     TRACE("Finished vertical flip");
 }
 
-int picasso_save_to_bmp(bmp *image, const char *file_path, picasso_icc_profile profile)
-{
-    FILE *f = fopen(file_path, "wb");
-    if (!f) {
-        ERROR("Failed to open BMP file for writing: %s", file_path);
-        return -1;
-    }
-    TRACE("Opened BMP file for writing: %s", file_path);
-
-    int width = image->ih.width;
-    int height = image->ih.height;
-    int channels = bits_to_bytes(image->ih.bit_count);
-    bool top_down = height < 0;
-    if (top_down) height = -height;
-
-    int row_stride = width * channels;
-    int row_size = ((row_stride + 3) / 4) * 4;
-    size_t pixel_array_size = (size_t)row_size * height;
-
-    TRACE("row stride %d vs size %d, pixel array size %zu", row_stride, row_size,
-            pixel_array_size);
-    // Flip buffer for bottom-up BMP format
-    bool flipped = false;
-    if (top_down) {
-        picasso_flip_buffer_vertical(image->pixels, width, height, channels);
-        image->ih.height = height; // temporarily positive
-        flipped = true;
-    }
-
-    // Set profile location if needed
-    if (profile != PICASSO_PROFILE_NONE) {
-        image->ih.profile_data = image->fh.offset_data + (uint32_t)pixel_array_size;
-    } else {
-        image->ih.profile_data = 0;
-        image->ih.profile_size = 0;
-    }
-
-    // Write headers
-    if (fwrite(&image->fh, sizeof(image->fh), 1, f) != 1 ||
-        fwrite(&image->ih, sizeof(image->ih), 1, f) != 1) {
-        ERROR("Failed to write BMP headers");
-        fclose(f);
-        return -1;
-    }
-    TRACE("Wrote BMP headers");
-    TRACE("Writing pixel data row by row");
-    TRACE("row_stride = %d, row_size = %d", row_stride, row_size);
-
-    // Write pixel data (already BGRA padded)
-    if (fwrite(image->pixels, 1, pixel_array_size, f) != pixel_array_size) {
-        ERROR("Failed to write BMP pixel data");
-        fclose(f);
-        return -1;
-    }
-
-// Embed ICC profile if requested
-    if (profile != PICASSO_PROFILE_NONE) {
-        if (!picasso_embed_icc_profile(image, profile, f)) {
-            WARN("Failed to embed ICC profile");
-        } else {
-            INFO("Embedded ICC profile: %s", picasso_icc_profile_name(profile));
-        }
-    }
-
-    fclose(f);
-    TRACE("Finished writing BMP");
-
-    // Restore top-down height and buffer
-    if (flipped) {
-        picasso_flip_buffer_vertical(image->pixels, width, height, channels);
-        image->ih.height = -height;
-    }
-
-    INFO("Saved BMP with ICC to %s", file_path);
-    return 0;
-}
-
-bmp *picasso_create_bmp_from_rgba(const uint8_t *pixel_data, int width, int height, int channels)
-{
-    if (width <= 0 || height == 0 || !pixel_data) {
-        ERROR("Invalid BMP creation params: %dx%d", width, height);
-        return NULL;
-    }
-    bool all_alpha_zero = (channels == 4);          // I only care if alpha exist
-    int abs_height = PICASSO_ABS(height);
-    int row_stride = width * channels;                         // tightly packed source
-    int row_size   = ((row_stride + 3) / 4) * 4;               // padded BMP row size
-    size_t pixel_array_size = (size_t)row_size * abs_height;
-
-    bmp *b = picasso_malloc(sizeof(bmp));
-    if (!b) return NULL;
-    memset(b, 0, sizeof(bmp));
-
-    // --- File header ---
-    b->fh.file_type = 0x4D42; // 'BM'
-    b->fh.offset_data = sizeof(b->fh) + sizeof(b->ih);
-    b->fh.file_size = b->fh.offset_data + (uint32_t)pixel_array_size;
-
-    // --- Info header ---
-    b->ih.size = sizeof(b->ih);
-    b->ih.width = width;
-    b->ih.height = -abs_height; // store top-down
-    b->ih.planes = 1;
-    b->ih.bit_count = (uint16_t)(bytes_to_bits(channels));
-    b->ih.compression = (channels == 4) ? 3 : 0;  // BI_BITFIELDS if 32-bit
-    b->ih.size_image = (uint32_t)pixel_array_size;
-    b->ih.x_pixels_per_meter = 3780;
-    b->ih.y_pixels_per_meter = 3780;
-
-    if (channels == 4) {
-        TRACE("Writing in for 4 channels!!!!!");
-        b->ih.red_mask   = 0x00FF0000;
-        b->ih.green_mask = 0x0000FF00;
-        b->ih.blue_mask  = 0x000000FF;
-        b->ih.alpha_mask = 0xFF000000;
-    }
-
-    b->ih.cs_type = LCS_sRGB;
-    b->ih.intent = LCS_GM_IMAGES;
-
-    // --- Allocate padded pixel buffer ---
-    b->pixels = picasso_malloc(pixel_array_size);
-    if (!b->pixels) {
-        picasso_free(b);
-        return NULL;
-    }
-
-    // --- Fill each row ---
-    for (int y = 0; y < abs_height; ++y) {
-        const uint8_t *src_row = pixel_data + y * row_stride;
-        uint8_t *dst_row = b->pixels + y * row_size;
-
-        for (int x = 0; x < width; ++x) {
-            const uint8_t *src = src_row + x * channels;
-            uint8_t *dst = dst_row + x * channels;
-
-            // Two operations in once, writing to, and
-            // swapping RGBA -> BGRA
-            dst[0] = src[2]; // B
-            dst[1] = src[1]; // G
-            dst[2] = src[0]; // R
-            if (channels == 4) {
-                dst[3] = src[3]; // Respect original alpha
-                if(src[3] != 0) all_alpha_zero = false;
-            }
-        }
-        // Fill padding bytes with zeros
-        int padding = row_size - row_stride;
-        if (padding > 0) {
-            memset(dst_row + row_stride, 0, padding);
-        }
-    }
-
-    if (channels == 4 && all_alpha_zero) {
-        TRACE("All alpha values were zero — replacing with opaque alpha");
-        for (int y = 0; y < abs_height; ++y) {
-            uint8_t *dst_row = b->pixels + y * row_size;
-            for (int x = 0; x < width; ++x) {
-                dst_row[x * 4 + 3] = 0xFF;
-            }
-        }
-    }
-
-    TRACE("BMP created (%dx%d @ %d-bit, padded rows)", width, abs_height, channels * 8);
-    return b;
-}
-
-typedef struct {
-    bmp image;
-    bmp_header_type type;
-    int channels, width, height, row_size, row_stride, size_image, comp;
-    bool is_flipped, set_all_alpha;
-    int rm_shift, gm_shift, bm_shift, am_shift;
-    uint32_t rm, gm, bm, am;
-}_bmp_load_info;
-
-static void picasso__extract_bitmasks(_bmp_load_info *bmp) {
+static void picasso__extract_bitmasks(bmp_load_info *bmp) {
     if (!bmp->rm) bmp->rm = bmp->image.ih.red_mask;
     if (!bmp->gm) bmp->gm = bmp->image.ih.green_mask;
     if (!bmp->bm) bmp->bm = bmp->image.ih.blue_mask;
@@ -390,7 +172,7 @@ static void picasso__extract_bitmasks(_bmp_load_info *bmp) {
     bmp->bm_shift = mask_bit_shift(bmp->bm);
     bmp->am_shift = mask_bit_shift(bmp->am);
 }
-static bmp_header_type picasso__decide_bmp_format(size_t *read, _bmp_load_info *b, int offset, FILE *fp)
+static bmp_header_type picasso__decide_bmp_format(size_t *read, bmp_load_info *b, int offset, FILE *fp)
 {
     *read += fread(&b->image.ih, 1, offset, fp);
     if (*read != (size_t)offset + sizeof(bmp_fh)) {
@@ -403,7 +185,7 @@ static bmp_header_type picasso__decide_bmp_format(size_t *read, _bmp_load_info *
     return (bmp_header_type)b->image.ih.size;
 }
 
-static bmp_header_type picasso__validate_bmp(size_t *read, _bmp_load_info *b, FILE *fp)
+static bmp_header_type picasso__validate_bmp(size_t *read, bmp_load_info *b, FILE *fp)
 {
     bmp_header_type type;
     *read += fread(&b->image.fh, 1, sizeof(bmp_fh), fp);
@@ -438,7 +220,7 @@ static bmp_header_type picasso__validate_bmp(size_t *read, _bmp_load_info *b, FI
     return type;
 }
 
-static void picasso__parse_coreheader_fields(_bmp_load_info *bmp)
+static void picasso__parse_coreheader_fields(bmp_load_info *bmp)
 {
     if (bmp->type == BITMAPCOREHEADER) {
         typedef struct {
@@ -471,7 +253,7 @@ static void picasso__parse_coreheader_fields(_bmp_load_info *bmp)
     }
 }
 
-static void picasso__parse_infoheader_fields(_bmp_load_info *bmp, FILE *fp, size_t *read)
+static void picasso__parse_infoheader_fields(bmp_load_info *bmp, FILE *fp, size_t *read)
 {
     bmp->channels    = bits_to_bytes(bmp->image.ih.bit_count);
     bmp->comp        = bmp->image.ih.compression;
@@ -530,7 +312,7 @@ static void picasso__parse_infoheader_fields(_bmp_load_info *bmp, FILE *fp, size
     }
 }
 
-static void picasso__parse_v3_fields(_bmp_load_info *bmp)
+static void picasso__parse_v3_fields(bmp_load_info *bmp)
 {
     picasso__extract_bitmasks(bmp);
 
@@ -540,7 +322,7 @@ static void picasso__parse_v3_fields(_bmp_load_info *bmp)
     TRACE("alpha mask:  0x%08x", bmp->image.ih.alpha_mask);
 }
 
-static void picasso__parse_v4_fields(_bmp_load_info *bmp)
+static void picasso__parse_v4_fields(bmp_load_info *bmp)
 {
     TRACE("cs_type: %s", _print_cs_type(bmp->image.ih.cs_type));
     TRACE("gamma_red:      %u", bmp->image.ih.gamma_red);
@@ -553,7 +335,7 @@ static void picasso__parse_v4_fields(_bmp_load_info *bmp)
     }
 }
 
-static void picasso__parse_v5_fields(_bmp_load_info *bmp)
+static void picasso__parse_v5_fields(bmp_load_info *bmp)
 {
     TRACE("intent:         %u", bmp->image.ih.intent);
     TRACE("profile_data:   %u", bmp->image.ih.profile_data);
@@ -579,7 +361,7 @@ static void picasso__parse_v5_fields(_bmp_load_info *bmp)
 /* Robust, and should handle all format now.. */
 picasso_image *picasso_load_bmp(const char *filename)
 {
-    _bmp_load_info bmp = {0};
+    bmp_load_info bmp = {0};
     picasso_image *img = NULL;
     size_t read = 0;
 

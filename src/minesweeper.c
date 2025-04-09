@@ -112,11 +112,11 @@ void process_input(cell grid[COL][ROW], rect *face, game_state *state, int *bomb
 void draw_face(picasso_backbuffer *renderer, picasso_image *texture, rect *face, game_state *state);
 void draw_numbers(picasso_backbuffer *renderer, picasso_image *texture, int *number_of_bombs, int last_second);
 void draw_canvas(picasso_backbuffer *renderer, cell grid[COL][ROW], picasso_image *texture, sprite *sprites, game_state state);
-static tile_type select_tile_for_cell(cell *c, game_state state);
+tile_type select_tile_for_cell(cell *c, game_state state);
 void reveal_tiles(cell grid[COL][ROW], int x, int y);
+void init_cell(cell *cell, int row, int col);
 void init_grid(cell grid[COL][ROW], int *num_bombs);
 int count_neighboring_bombs(cell grid[COL][ROW], int x, int y);
-void init_cell(cell *cell, int row, int col);
 
 int main(void)
 {
@@ -142,6 +142,9 @@ int main(void)
     cell grid[COL][ROW];
 
     // Initializing the time keeping
+    canopy_init_timer();
+    canopy_set_fps(24);
+
     time_t start, current;
     double elapsed_seconds	= 0;
     int last_second			= 0;
@@ -327,7 +330,7 @@ void reveal_tiles(cell grid[COL][ROW], int x, int y)
 	}
 }
 
-static tile_type select_tile_for_cell(cell *c, game_state state)
+tile_type select_tile_for_cell(cell *c, game_state state)
 {
     if (state == GAME_OVER) {
         if (c->is_bomb && !c->is_revealed) return BOMB_NORMAL;
@@ -392,6 +395,7 @@ void draw_numbers(picasso_backbuffer *renderer, picasso_image *texture, int *num
 	// Left numbers
 	numbers.x = sprites[hundreds].x;
 	numbers.y = sprites[hundreds].y;
+	numbers_destination.x += 0;
 	picasso_blit_rect(renderer, texture, numbers, numbers_destination);
 
 	numbers.x = sprites[tens].x;
@@ -405,19 +409,19 @@ void draw_numbers(picasso_backbuffer *renderer, picasso_image *texture, int *num
 	picasso_blit_rect(renderer, texture, numbers, numbers_destination);
 
 	// Right numbers
-	numbers_destination.x  = 375;
 	numbers.x = sprites[s_ones].x;
 	numbers.y = sprites[s_ones].y;
+    numbers_destination.x  = 375;
 	picasso_blit_rect(renderer, texture, numbers, numbers_destination);
 
-	numbers_destination.x -= 19;
 	numbers.x = sprites[s_tens].x;
 	numbers.y = sprites[s_tens].y;
+    numbers_destination.x -= 19;
 	picasso_blit_rect(renderer, texture, numbers, numbers_destination);
 
-	numbers_destination.x -= 19;
 	numbers.x = sprites[s_hundreds].x;
 	numbers.y = sprites[s_hundreds].y;
+    numbers_destination.x -= 19;
 	picasso_blit_rect(renderer, texture, numbers, numbers_destination);
 
 	#undef OFFSET

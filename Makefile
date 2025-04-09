@@ -20,11 +20,10 @@ src_common  = $(src_dir)/canopy.m \
               $(src_dir)/common.c \
               $(src_dir)/bmp.c \
               $(src_dir)/picasso.c \
-              $(src_dir)/picasso_icc_profiles.c \
               $(logger_dir)/logger.c
 
 # Game binary name
-game        = Minesweeper
+game        = minesweeper
 outputs     = $(addprefix $(bin_dir)/, $(game))
 
 # Default target
