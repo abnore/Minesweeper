@@ -1,4 +1,9 @@
 # Minesweeper
+>[!NOTE]
+> v2.0.0
+> No external dependencies, no more SDL or raylib. Created everything from scratch using
+> only libc and Cocoa.
+
 Making minesweeper like the old Win98/2000 style using pure C.
 This is a small personal project to learn C.
 
