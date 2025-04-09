@@ -1,38 +1,56 @@
 # Minesweeper
->[!NOTE]
-> v2.0.0
-> No external dependencies, no more SDL or raylib. Created everything from scratch using
-> only libc and Cocoa.
 
-Making minesweeper like the old Win98/2000 style using pure C.
-This is a small personal project to learn C.
+> **v2.0.0**  
+> No SDL, no Raylib — this version is built **from scratch** using only **libc and Cocoa**.
+
+A nostalgic Win98/2000-style **Minesweeper clone**, written in **pure C**, with no external game engine dependencies.
+
+>[!WARNING]
+>
+>  **Made for macOS — not cross-platform.**
 
 <img src="/img/minedemo.jpg" alt="Example showing the graphics" width="300">
 
-**Made for mac, not cross-platform**
+---
 
-## In progress:
+## In Progress
 
-* Making it varying size, currently 16x16 grid
-* Maybe incorporating sounds
+- [x] Working 16x16 grid
+- [ ] Variable grid size (WIP)
+- [ ] Sounds?
 
-### When running
-It now shows the number of mines correctly, including negative numbers.
-The timer is functioning and will stop when the game is over. Graphics work like they should.
-If you press a mine, and move the cursor it will let you undo the press.
-Additionaly, I added the question mark functionality so you can mark a tile a question mark, but it
-is still pressable.
+---
 
-The macro `BOMB_CHANCE` determines the probability of a cell being a bomb. The lower this number,
-the more bombs you will get. It is now set at a medium difficulty with 7. Good luck with anything
-under 5.
+## Features
 
-The makefile is included, and will build to a bin file with the command
-```console
+- Accurate bomb counter — supports negative numbers
+- Timer stops when the game ends
+- Undo press: if you click and move away, the tile won’t stay pressed
+- Right-click cycles through: flag → question mark → blank
+- Question marks are **pressable**
+- All graphics rendered using [`picasso`](https://github.com/abnore/picasso), [`canopy`](https://github.com/abnore/canopy), and [`blackbox`](https://github.com/abnore/blackbox)
+
+---
+
+## Gameplay
+
+The macro `BOMB_CHANCE` controls difficulty.  
+Lower = more bombs.  
+Default is `7`, which is medium difficulty.  
+Try under `5` for a real challenge.
+
+---
+
+## Building
+
+### To build:
+```bash
 make
 ```
 
-If you want, this command will build and start the program.
-```console
+### To build & run:
+```bash
 make run
 ```
+
+Build output goes to the bin/ directory.
