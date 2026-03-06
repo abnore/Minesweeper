@@ -14,7 +14,6 @@
 extern "C" { // Prevents name mangling of functions
 #endif
 
-#include "canopy_time.h"
 #include "common.h"
 
 /// @brief Available window style options for Canopy windows.
@@ -97,6 +96,7 @@ void canopy_set_icon(const char* filepath);
 bool canopy_is_window_opaque(canopy_window *win);
 void canopy_set_window_transparent(canopy_window *win, bool enable);
 
+void canopy_set_window_should_close(canopy_window* w);
 /// @brief Checks if the window should close (user clicked the close button).
 /// @param[in] w The window to query.
 /// @return true if the window should close, false otherwise.

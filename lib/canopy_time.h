@@ -37,6 +37,13 @@ double canopy_get_time(void);
 /// @return Current time in nanoseconds.
 uint64_t canopy_get_time_ns(void);
 
+/// @brief Returns the delta time in seconds.
+///
+/// Represents the actual time between the last rendered frame and the current one.
+/// Useful for smooth animation and motion consistency.
+///
+/// @return Delta time in seconds.
+double canopy_get_delta_time(void);
 
 //----------------------------------------
 // Frame Timing Control
@@ -62,4 +69,5 @@ int canopy_get_fps(void);
 /// @return `1` if rendering should occur, `0` if the frame should be skipped.
 int canopy_should_render_frame(void);
 
+void canopy_sleep_until_next_frame(void);
 #endif // CANOPY_TIMER_H

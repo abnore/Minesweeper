@@ -2,11 +2,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <blackbox.h>
 
 #include "picasso.h"
-#include "logger.h"
-
-
 
 void picasso_image_free(picasso_image *img);
 

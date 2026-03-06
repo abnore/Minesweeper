@@ -1,8 +1,8 @@
 #include <stdbool.h>
 #include <string.h>
+#include <blackbox.h>
 
 #include "picasso.h"
-#include "logger.h"
 
 #define LCS_GM_BUSINESS          (1<<0) // 0x00000001  // Saturation
 #define LCS_GM_GRAPHICS          (1<<1) // 0x00000002  // Relative colorimetric
@@ -401,12 +401,12 @@ picasso_image *picasso_load_bmp(const char *filename)
     }
     TRACE("CHANNELS = %d", img->channels);
 
-    uint8_t *row_buf = malloc(bmp.row_size);
+    uint8_t *row_buf = picasso_malloc(bmp.row_size);
 
     for (int y = 0; y < bmp.height; ++y) {
         if ((read = fread(row_buf, 1, bmp.row_size, fp)) != (size_t)bmp.row_size) {
             ERROR("Failed to read row %d", y);
-            free(row_buf);
+            picasso_free(row_buf);
             picasso_free(img->pixels);
             picasso_free(img);
             fclose(fp);
@@ -417,7 +417,7 @@ picasso_image *picasso_load_bmp(const char *filename)
         memcpy(img->pixels + dest_y * img->row_stride, row_buf, img->row_stride);
     }
 
-    free(row_buf);
+    picasso_free(row_buf);
     /* Finally done reading the file */
     fclose(fp);
 
@@ -425,23 +425,23 @@ picasso_image *picasso_load_bmp(const char *filename)
 
     color c;
     foreach_pixel_image(img, {
-            if (bmp.comp == BI_BITFIELDS && bmp.channels == 4)
-            {
+        if (bmp.comp == BI_BITFIELDS && bmp.channels == 4)
+        {
             decode_and_write_pixel_32bit(c, pixels); // Decode from 32-bit pixel using bitmasks
             if (pixels[3] != 0) bmp.set_all_alpha = false;
-            }
-            else
-            {
+        }
+        else
+        {
             PICASSO_SWAP(pixels[0], pixels[2]); // BGR → RGB
-            }
-            });
+        }
+    });
 
     if (bmp.set_all_alpha && img->channels == 4)
     {
         TRACE("All alpha values were zero — setting to 0xff");
         foreach_pixel_image(img, {
-                pixels[3] = 0xFF;
-                });
+            pixels[3] = 0xFF;
+        });
     }
     return img;
 }

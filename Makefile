@@ -5,11 +5,10 @@
 bin_dir     = bin
 src_dir     = src
 lib_dir     = lib
-logger_dir  = logger
 
 cc          = clang
 cc_flags    = -Wall -Wextra -g
-cc_flags   += -framework Cocoa
+cc_flags   += -framework Cocoa -lblackbox
 cc_flags   += -I. -I$(lib_dir) -I$(logger_dir) -I$(src_dir)
 
 # Source files
@@ -20,7 +19,6 @@ src_common  = $(src_dir)/canopy.m \
               $(src_dir)/common.c \
               $(src_dir)/bmp.c \
               $(src_dir)/picasso.c \
-              $(logger_dir)/logger.c
 
 # Game binary name
 game        = minesweeper

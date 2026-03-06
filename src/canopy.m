@@ -1,4 +1,6 @@
 #import <Cocoa/Cocoa.h>
+#import <blackbox.h>
+
 #import "canopy.h"
 
 //----------------------------------------
@@ -455,7 +457,10 @@ void canopy_free_window(canopy_window* win)
     canopy_free(win);
 }
 
-
+void canopy_set_window_should_close(canopy_window *window)
+{
+    window->should_close = true;
+}
 bool canopy_window_should_close(canopy_window *window)
 {
     canopy_pump_events();  // Keep the UI alive
